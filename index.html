@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Cosmo Coletor</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+	<main class="game-shell">
+		<header class="topbar">
+			<div>
+				<p class="eyebrow">missão 01 / campo de asteroides</p>
+				<h1>Cosmo <span>Coletor</span></h1>
+			</div>
+			<div class="top-actions"><button class="icon-button" id="soundButton" type="button" aria-label="Desligar sons">♫</button><button class="icon-button" id="pauseButton" type="button" aria-label="Pausar jogo">Ⅱ</button></div>
+		</header>
+
+		<section class="hud" aria-label="Status da missão">
+			<div class="stat"><span>PONTOS</span><strong id="score">0000</strong></div>
+			<div class="stat"><span>ENERGIA</span><strong id="energy">∞</strong></div>
+			<div class="stat"><span>TEMPO</span><strong id="timer">60</strong></div>
+			<div class="stat lives-stat"><span>BLINDAGEM</span><strong id="lives">● ● ●</strong></div>
+		</section>
+
+		<section class="hangar" aria-label="Seleção de nave e piloto">
+			<div class="hangar-heading"><span>ESCOLHA SUA TRIPULAÇÃO</span><small>cada nave muda seu jeito de jogar</small></div>
+			<div class="ship-options">
+				<button class="ship-option is-selected" data-ship="scout" type="button" aria-pressed="true"><img class="pilot-portrait" src="luna.svg" alt="Retrato de Luna"><i class="ship-mark scout-mark"></i><span><strong>LUNA / CORREDORA</strong><small>rápida · tiro simples</small></span></button>
+				<button class="ship-option" data-ship="hunter" type="button" aria-pressed="false"><img class="pilot-portrait" src="kaio.svg" alt="Retrato de Kaio"><i class="ship-mark hunter-mark"></i><span><strong>KAIO / CAÇADORA</strong><small>equilibrada · tiro duplo</small></span></button>
+				<button class="ship-option" data-ship="titan" type="button" aria-pressed="false"><img class="pilot-portrait" src="iris.svg" alt="Retrato de Íris"><i class="ship-mark titan-mark"></i><span><strong>ÍRIS / TANQUE</strong><small>lenta · canhão pesado</small></span></button>
+				<button class="ship-option special-ship" data-ship="special" type="button" aria-pressed="false"><i class="ship-mark special-mark"></i><span><strong>AURORA / ESPECIAL</strong><small>metralhadora · granadas · raio</small></span></button>
+			</div>
+			<div class="pilot-select" id="pilotSelect" hidden><span>ESCOLHA O PILOTO DA AURORA</span><button data-pilot="scout" type="button">LUNA</button><button data-pilot="hunter" type="button">KAIO</button><button data-pilot="titan" type="button">ÍRIS</button></div>
+		</section>
+
+		<section class="map-select" aria-label="Seleção de mapa">
+			<div class="map-heading"><span>ROTA DA MISSÃO</span><small id="mapDescription">chuva de detritos e sinais instáveis</small></div>
+			<div class="map-options">
+				<button class="map-option is-selected" data-map="orbit" type="button" aria-pressed="true"><i class="map-swatch orbit-swatch"></i><span>ÓRBITA PARTIDA</span></button>
+				<button class="map-option" data-map="nebula" type="button" aria-pressed="false"><i class="map-swatch nebula-swatch"></i><span>NEBULOSA RUBRA</span></button>
+				<button class="map-option" data-map="ice" type="button" aria-pressed="false"><i class="map-swatch ice-swatch"></i><span>ANEL DE GELO</span></button>
+			</div>
+		</section>
+
+		<section class="arsenal" aria-label="Seleção de arma">
+			<div class="arsenal-heading"><span>ARSENAL</span><small id="weaponDescription">rápido e preciso</small></div>
+			<div class="weapon-options">
+				<button class="weapon-option is-selected" data-weapon="pulse" type="button" aria-pressed="true"><i class="weapon-icon pulse-icon"></i><span>PULSO<small>rápido</small></span></button>
+				<button class="weapon-option" data-weapon="spread" type="button" aria-pressed="false"><i class="weapon-icon spread-icon"></i><span>RAJADA<small>três tiros</small></span></button>
+				<button class="weapon-option" data-weapon="plasma" type="button" aria-pressed="false"><i class="weapon-icon plasma-icon"></i><span>PLASMA<small>alto impacto</small></span></button>
+				<button class="weapon-option" data-weapon="rocket" type="button" aria-pressed="false"><i class="weapon-icon rocket-icon"></i><span>FOGUETE<small>explosão em área</small></span></button>
+				<button class="weapon-option" data-weapon="machine" type="button" aria-pressed="false"><i class="weapon-icon machine-icon"></i><span>METRALHADORA<small>rajada contínua</small></span></button>
+				<button class="weapon-option" data-weapon="grenade" type="button" aria-pressed="false"><i class="weapon-icon grenade-icon"></i><span>GRANADA<small>fragmentação</small></span></button>
+				<button class="weapon-option" data-weapon="beam" type="button" aria-pressed="false"><i class="weapon-icon beam-icon"></i><span>RAIO PLASMA<small>feixe contínuo</small></span></button>
+			</div>
+			<div class="fusion-row"><button class="fusion-button" id="fusionButton" type="button" aria-pressed="false">+ FUNDIR ARMAS</button><small id="fusionStatus">selecione duas armas para criar uma híbrida</small></div>
+		</section>
+
+		<section class="game-frame">
+			<canvas id="gameCanvas" aria-label="Área do jogo Cosmo Coletor"></canvas>
+			<div class="game-message" id="gameMessage" hidden>
+				<p class="message-kicker">sinal interrompido</p>
+				<h2 id="messageTitle">Missão concluída</h2>
+				<p id="messageText">Você atravessou o campo.</p>
+				<button class="primary-button" id="restartButton" type="button">Jogar novamente</button>
+			</div>
+			<div class="pause-message" id="pauseMessage" hidden>
+				<p>JOGO PAUSADO</p>
+				<small>Pressione P ou toque no botão para voltar</small>
+			</div>
+		</section>
+
+		<footer class="controls">
+			<div class="instructions"><span class="key-hint">WASD</span><span>mover</span><span class="key-hint">ESPAÇO</span><span>atirar</span><span class="dot"></span><span>cole cristais, desvie dos asteroides</span></div>
+			<div class="touch-controls" aria-label="Controles de toque">
+				<button data-key="ArrowLeft" type="button" aria-label="Mover para esquerda">←</button>
+				<div><button data-key="ArrowUp" type="button" aria-label="Mover para cima">↑</button><button data-key="ArrowDown" type="button" aria-label="Mover para baixo">↓</button></div>
+				<button data-key="ArrowRight" type="button" aria-label="Mover para direita">→</button>
+				<button class="fire-button" id="fireButton" type="button" aria-label="Atirar">✦</button>
+			</div>
+		</footer>
+	</main>
+	<script src="script.js"></script>
+</body>
+</html>
