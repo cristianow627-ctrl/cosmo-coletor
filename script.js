@@ -1,11 +1,18 @@
 const canvas = document.querySelector("#gameCanvas");
 const context = canvas.getContext("2d");
 const scoreElement = document.querySelector("#score");
+const levelElement = document.querySelector("#levelValue");
+const xpFill = document.querySelector("#xpFill");
+const xpStatus = document.querySelector("#xpStatus");
 const energyElement = document.querySelector("#energy");
 const timerElement = document.querySelector("#timer");
 const livesElement = document.querySelector("#lives");
+const armorLevelElement = document.querySelector("#armorLevel");
+const damageReceivedElement = document.querySelector("#damageReceived");
+const healthFill = document.querySelector("#healthFill");
 const pauseButton = document.querySelector("#pauseButton");
 const pauseMessage = document.querySelector("#pauseMessage");
+const resumeButton = document.querySelector("#resumeButton");
 const gameMessage = document.querySelector("#gameMessage");
 const messageTitle = document.querySelector("#messageTitle");
 const messageText = document.querySelector("#messageText");
@@ -21,6 +28,13 @@ const fusionButton = document.querySelector("#fusionButton");
 const fusionStatus = document.querySelector("#fusionStatus");
 const pilotSelect = document.querySelector("#pilotSelect");
 const pilotOptions = document.querySelectorAll("[data-pilot]");
+const specialButton = document.querySelector("#specialButton");
+const specialFill = document.querySelector("#specialFill");
+const specialName = document.querySelector("#specialName");
+const specialStatus = document.querySelector("#specialStatus");
+const repairStatus = document.querySelector("#repairStatus");
+const supportStatus = document.querySelector("#supportStatus");
+const supportDetail = document.querySelector("#supportDetail");
 
 const keys = new Set();
 const ships = {
@@ -39,9 +53,9 @@ const weapons = {
 	beam: { name: "RAIO PLASMA", description: "feixe contínuo de energia", cooldown: .04, speed: 760, damage: 1, radius: 5, color: "#71e2d3", pattern: [0], type: "beam" }
 };
 const maps = {
-	orbit: { description: "chuva de detritos e sinais instáveis", background: "#081319", accent: "#d7f36b", enemyRate: .66, enemyTypes: ["rock", "drone", "smart", "alien"] },
-	nebula: { description: "nuvem rubra, inimigos mais velozes", background: "#1d111d", accent: "#ff754f", enemyRate: .52, enemyTypes: ["drone", "mine", "smart", "alien"] },
-	ice: { description: "fragmentos congelados e minas camufladas", background: "#0b1d29", accent: "#9ce8ef", enemyRate: .6, enemyTypes: ["rock", "mine", "drone", "smart", "alien"] }
+	orbit: { description: "chuva de detritos e sinais instáveis", background: "#081319", accent: "#d7f36b", enemyRate: .66, enemyTypes: ["rock", "drone", "smart", "alien"], unlock: 1 },
+	nebula: { description: "nuvem rubra, inimigos mais velozes", background: "#1d111d", accent: "#ff754f", enemyRate: .52, enemyTypes: ["drone", "mine", "smart", "alien"], unlock: 5 },
+	ice: { description: "fragmentos congelados e minas camufladas", background: "#0b1d29", accent: "#9ce8ef", enemyRate: .6, enemyTypes: ["rock", "mine", "drone", "smart", "alien"], unlock: 10 }
 };
 let selectedShip = "scout";
 let selectedMap = "orbit";
@@ -50,12 +64,15 @@ let selectedPilot = "scout";
 let fusionMode = false;
 let fusionParts = [];
 let fireHeld = false;
-const state = { score: 0, energy: 0, lives: 3, elapsed: 0, paused: false, ended: false, lastTime: 0, spawnTimer: 0, crystalTimer: 0, repairTimer: 0, fireCooldown: 0 };
-const player = { x: 0, y: 0, radius: 16, speed: 330, invulnerable: 0 };
+const specials = { scout: ["DASH", "avanço invulnerável"], hunter: ["SALVA", "rajada de oito tiros"], titan: ["REPARO", "recupera duas blindagens"], special: ["SALVA", "sete granadas em leque"] };
+const state = { score: 0, level: 1, xp: 0, energy: 0, lives: 3, damage: 0, special: 0, specialTime: 30, mechanicTimer: 8, elapsed: 0, paused: false, ended: false, lastTime: 0, spawnTimer: 0, crystalTimer: 0, repairTimer: 0, fireCooldown: 0 };
+const player = { x: 0, y: 0, radius: 16, speed: 330, angle: 0, invulnerable: 0 };
 let asteroids = [];
 let crystals = [];
 let bullets = [];
 let repairBases = [];
+let mechanic = { x: 0, y: 0, glow: 0 };
+let allies = [];
 let stars = [];
 let effects = [];
 let audioContext;
@@ -106,8 +123,9 @@ function resetGame() {
 	const bounds = canvas.getBoundingClientRect();
 	const ship = ships[selectedShip];
 	const pilotBonus = selectedShip === "special" ? { scout: 35, hunter: 0, titan: -35 }[selectedPilot] : 0;
-	state.score = 0; state.energy = 0; state.lives = ship.lives; state.elapsed = 0; state.paused = false; state.ended = false; state.lastTime = 0; state.spawnTimer = .4; state.crystalTimer = .5; state.repairTimer = 4; state.fireCooldown = 0;
-	player.x = bounds.width / 2; player.y = bounds.height * .8; player.radius = ship.radius; player.speed = ship.speed + pilotBonus; player.invulnerable = 0;
+	state.score = 0; state.energy = 0; state.lives = ship.lives; state.damage = 0; state.special = 0; state.specialTime = 30; state.mechanicTimer = 8; state.elapsed = 0; state.paused = false; state.ended = false; state.lastTime = 0; state.spawnTimer = .4; state.crystalTimer = .5; state.repairTimer = 4; state.fireCooldown = 0;
+	player.x = bounds.width / 2; player.y = bounds.height * .8; player.radius = ship.radius; player.speed = ship.speed + pilotBonus; player.angle = 0; player.invulnerable = 0;
+	mechanic = { x: player.x - 34, y: player.y + 12, glow: 0 }; allies = [];
 	asteroids = []; crystals = []; bullets = []; effects = []; repairBases = []; fireHeld = false; screenShake = 0;
 	gameMessage.hidden = true; pauseMessage.hidden = true; pauseButton.textContent = "Ⅱ";
 	updateHud();
@@ -116,11 +134,24 @@ function resetGame() {
 
 function updateHud() {
 	scoreElement.textContent = String(state.score).padStart(4, "0");
+	levelElement.textContent = state.level;
+	xpFill.style.width = `${Math.min(100, state.xp / (state.level * 100) * 100)}%`;
+	xpStatus.textContent = `${state.xp} / ${state.level * 100} XP`;
 	energyElement.textContent = "∞";
 	timerElement.textContent = "∞";
-	const emptyArmor = Math.max(0, 4 - state.lives);
+	const emptyArmor = Math.max(0, ships[selectedShip].lives - state.lives);
 	livesElement.textContent = `${"● ".repeat(state.lives)}${"○ ".repeat(emptyArmor)}`.trim();
+	armorLevelElement.textContent = `${state.lives} / ${ships[selectedShip].lives}`;
+	damageReceivedElement.textContent = state.damage;
+	healthFill.style.width = `${Math.max(0, state.lives / ships[selectedShip].lives * 100)}%`;
+	specialName.textContent = specials[selectedShip][0];
+	specialFill.style.width = `${state.special}%`;
+	specialStatus.textContent = state.special >= 100 ? "PRONTO · E" : `carrega em ${Math.ceil(state.specialTime)}s`;
+	supportStatus.textContent = allies.length ? "EQUIPE ATIVA" : "MECÂNICO";
+	supportDetail.textContent = allies.length ? `${allies.length} aliados em campo` : "reparo automático";
 }
+
+function gainXp(amount) { state.xp += amount; while (state.xp >= state.level * 100) { state.xp -= state.level * 100; state.level += 1; } }
 
 function spawnAsteroid() {
 	const bounds = canvas.getBoundingClientRect();
@@ -148,6 +179,7 @@ function movePlayer(delta) {
 	if (keys.has("ArrowUp") || keys.has("w")) vertical -= 1;
 	if (keys.has("ArrowDown") || keys.has("s")) vertical += 1;
 	const length = Math.hypot(horizontal, vertical) || 1;
+	if (horizontal || vertical) player.angle = Math.atan2(vertical, horizontal) + Math.PI / 2;
 	player.x = Math.max(20, Math.min(bounds.width - 20, player.x + horizontal / length * player.speed * delta));
 	player.y = Math.max(20, Math.min(bounds.height - 20, player.y + vertical / length * player.speed * delta));
 }
@@ -169,13 +201,18 @@ function createFusionWeapon() {
 function circleHit(first, second) { return Math.hypot(first.x - second.x, first.y - second.y) < first.radius + second.radius; }
 
 function update(delta) {
-	state.elapsed += delta; state.fireCooldown = Math.max(0, state.fireCooldown - delta); player.invulnerable = Math.max(0, player.invulnerable - delta); movePlayer(delta); if (fireHeld) shoot();
+	state.elapsed += delta; state.fireCooldown = Math.max(0, state.fireCooldown - delta); player.invulnerable = Math.max(0, player.invulnerable - delta); if (state.special < 100) { state.specialTime = Math.max(0, state.specialTime - delta); if (!state.specialTime) state.special = 100; } movePlayer(delta); if (fireHeld) shoot();
 	state.spawnTimer -= delta; state.crystalTimer -= delta;
 	if (state.spawnTimer <= 0) { spawnAsteroid(); state.spawnTimer = Math.max(.24, maps[selectedMap].enemyRate - state.elapsed * .004); }
 	if (state.crystalTimer <= 0) { spawnCrystal(); state.crystalTimer = randomBetween(1.1, 1.8); }
 	state.repairTimer -= delta;
 	if (state.repairTimer <= 0) { spawnRepairBase(); state.repairTimer = randomBetween(11, 17); }
 	const bounds = canvas.getBoundingClientRect();
+	mechanic.x += (player.x - 34 - mechanic.x) * delta * 2.5; mechanic.y += (player.y + 12 - mechanic.y) * delta * 2.5; mechanic.glow = Math.max(0, mechanic.glow - delta);
+	if (state.level >= 4 && allies.length === 0) { allies = [{ x: player.x - 44, y: player.y + 20, color: "#71e2d3", fire: 0 }, { x: player.x + 44, y: player.y + 20, color: "#ffb06a", fire: .35 }]; repairStatus.textContent = "EQUIPE DE REFORÇO CHEGOU"; }
+	allies.forEach(ally => { ally.x += (player.x + (ally.color === "#71e2d3" ? -44 : 44) - ally.x) * delta * 2; ally.y += (player.y + 22 - ally.y) * delta * 2; ally.fire -= delta; if (ally.fire <= 0 && asteroids.length) { bullets.push({ x: ally.x, y: ally.y, radius: 3, speed: 470, damage: 1, color: ally.color, weapon: "bolt" }); ally.fire = .7; } });
+	state.mechanicTimer -= delta;
+	if (state.mechanicTimer <= 0) { if (state.lives < ships[selectedShip].lives) { state.lives += 1; mechanic.glow = 1.2; repairStatus.textContent = `MECÂNICO: BLINDAGEM ${state.lives} / ${ships[selectedShip].lives}`; } state.mechanicTimer = 8; }
 	stars.forEach(star => { star.y += star.speed * delta; if (star.y > bounds.height) star.y = -2; });
 	asteroids.forEach(asteroid => {
 		asteroid.y += asteroid.speed * delta; asteroid.angle += asteroid.rotation * delta;
@@ -200,13 +237,13 @@ function update(delta) {
 		createExplosion(bullet.x, bullet.y, bullet.color, target.health <= 0 ? 12 : 5);
 		playSound(target.health <= 0 ? "hit" : "laser");
 		if (bullet.splash) { asteroids.forEach(asteroid => { if (asteroid !== target && Math.hypot(asteroid.x - target.x, asteroid.y - target.y) < bullet.splash) asteroid.health -= 1; }); createExplosion(target.x, target.y, bullet.color, 20); }
-		if (target.health <= 0) { asteroids = asteroids.filter(asteroid => asteroid !== target); state.score += 25; }
+		if (target.health <= 0) { asteroids = asteroids.filter(asteroid => asteroid !== target); state.score += 25; gainXp(target.type === "alien" ? 45 : target.type === "smart" ? 30 : 15); }
 		return false;
 	});
-	crystals = crystals.filter(crystal => { if (circleHit(player, crystal)) { state.energy += 1; state.score += 100; playSound("collect"); createExplosion(crystal.x, crystal.y, "#71e2d3", 8); return false; } return true; });
+	crystals = crystals.filter(crystal => { if (circleHit(player, crystal)) { state.energy += 1; state.score += 100; gainXp(10); playSound("collect"); createExplosion(crystal.x, crystal.y, "#71e2d3", 8); return false; } return true; });
 	repairBases = repairBases.filter(base => { if (circleHit(player, base)) { state.lives = Math.min(ships[selectedShip].lives, state.lives + 1); state.score += 50; playSound("collect"); createExplosion(base.x, base.y, "#9ce8ef", 12); return false; } return true; });
 	asteroids = asteroids.filter(asteroid => {
-		if (player.invulnerable <= 0 && circleHit(player, asteroid)) { state.lives -= 1; state.score = Math.max(0, state.score - 50); player.invulnerable = 1.4; player.x = bounds.width / 2; player.y = bounds.height * .8; createExplosion(player.x, player.y, ships[selectedShip].color, state.lives <= 0 ? 28 : 15); playSound(state.lives <= 0 ? "crash" : "hit"); if (state.lives <= 0) finishGame(false); return false; }
+		if (player.invulnerable <= 0 && circleHit(player, asteroid)) { state.damage += 1; state.lives -= 1; state.score = Math.max(0, state.score - 50); player.invulnerable = 1.4; player.x = bounds.width / 2; player.y = bounds.height * .8; createExplosion(player.x, player.y, ships[selectedShip].color, state.lives <= 0 ? 28 : 15); playSound(state.lives <= 0 ? "crash" : "hit"); if (state.lives <= 0) finishGame(false); return false; }
 		return true;
 	});
 	updateHud();
@@ -223,10 +260,23 @@ function draw() {
 	stars.forEach(star => { context.globalAlpha = star.alpha; context.fillStyle = map.accent; context.fillRect(star.x, star.y, star.size, star.size); }); context.globalAlpha = 1;
 	crystals.forEach(crystal => { context.save(); context.translate(crystal.x, crystal.y); context.rotate(crystal.phase); context.fillStyle = "#71e2d3"; context.shadowColor = "#71e2d3"; context.shadowBlur = 15; context.beginPath(); context.moveTo(0, -crystal.radius); context.lineTo(crystal.radius * .7, 0); context.lineTo(0, crystal.radius); context.lineTo(-crystal.radius * .7, 0); context.closePath(); context.fill(); context.restore(); });
 	repairBases.forEach(base => { context.save(); context.translate(base.x, base.y); context.rotate(base.phase); context.strokeStyle = "#9ce8ef"; context.fillStyle = "#143a49"; context.shadowColor = "#9ce8ef"; context.shadowBlur = 14; context.lineWidth = 2; context.beginPath(); context.arc(0, 0, base.radius, 0, Math.PI * 2); context.fill(); context.stroke(); context.beginPath(); context.moveTo(-11, 0); context.lineTo(11, 0); context.moveTo(0, -11); context.lineTo(0, 11); context.stroke(); context.restore(); });
+	context.save(); context.translate(mechanic.x, mechanic.y); context.fillStyle = "#9ce8ef"; context.shadowColor = "#9ce8ef"; context.shadowBlur = mechanic.glow ? 18 : 7; context.beginPath(); context.arc(0, 0, 9, 0, Math.PI * 2); context.fill(); context.fillStyle = "#143a49"; context.fillRect(-5, -1, 10, 2); context.fillRect(-1, -5, 2, 10); context.restore();
+	allies.forEach(ally => { context.save(); context.translate(ally.x, ally.y); context.fillStyle = ally.color; context.beginPath(); context.moveTo(0, -12); context.lineTo(9, 8); context.lineTo(0, 4); context.lineTo(-9, 8); context.closePath(); context.fill(); context.restore(); });
 	asteroids.forEach(asteroid => { context.save(); context.translate(asteroid.x, asteroid.y); context.rotate(asteroid.angle); context.fillStyle = asteroid.health < asteroid.maxHealth ? "#704c45" : asteroid.type === "alien" ? "#4e2459" : asteroid.type === "smart" ? "#6b315a" : asteroid.type === "mine" ? "#593a4d" : asteroid.type === "drone" ? "#294f58" : "#53616a"; context.strokeStyle = asteroid.type === "alien" ? "#ff8be8" : asteroid.type === "smart" ? "#e48bff" : asteroid.type === "mine" ? "#ff754f" : "#a7b1ab"; context.lineWidth = 1.5; context.beginPath(); if (asteroid.type === "alien") { context.moveTo(0, -asteroid.radius); context.lineTo(asteroid.radius * .78, -asteroid.radius * .25); context.lineTo(asteroid.radius * .65, asteroid.radius); context.lineTo(0, asteroid.radius * .58); context.lineTo(-asteroid.radius * .65, asteroid.radius); context.lineTo(-asteroid.radius * .78, -asteroid.radius * .25); } else if (asteroid.type === "smart") { context.moveTo(0, -asteroid.radius); context.lineTo(asteroid.radius * .75, -asteroid.radius * .35); context.lineTo(asteroid.radius, asteroid.radius * .55); context.lineTo(0, asteroid.radius * .82); context.lineTo(-asteroid.radius, asteroid.radius * .55); context.lineTo(-asteroid.radius * .75, -asteroid.radius * .35); } else if (asteroid.type === "drone") { context.moveTo(0, -asteroid.radius); context.lineTo(asteroid.radius, 0); context.lineTo(0, asteroid.radius); context.lineTo(-asteroid.radius, 0); } else if (asteroid.type === "mine") { for (let point = 0; point < 12; point += 1) { const radius = point % 2 ? asteroid.radius * .7 : asteroid.radius; const angle = point * Math.PI / 6; context.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius); } } else { for (let point = 0; point < 8; point += 1) { const radius = asteroid.radius * (point % 2 ? .82 : 1); const angle = point * Math.PI / 4; context.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius); } } context.closePath(); context.fill(); context.stroke(); if (asteroid.type === "alien") { context.fillStyle = "#ff8be8"; context.beginPath(); context.arc(-6, -2, 3, 0, Math.PI * 2); context.arc(6, -2, 3, 0, Math.PI * 2); context.fill(); } if (asteroid.type === "smart") { context.fillStyle = "#e48bff"; context.beginPath(); context.arc(0, 0, 3, 0, Math.PI * 2); context.fill(); } if (asteroid.health < asteroid.maxHealth) { context.strokeStyle = "#ffb06a"; context.lineWidth = 2; context.beginPath(); context.moveTo(-asteroid.radius * .55, -asteroid.radius * .65); context.lineTo(-asteroid.radius * .08, 0); context.lineTo(-asteroid.radius * .4, asteroid.radius * .66); context.moveTo(-asteroid.radius * .08, 0); context.lineTo(asteroid.radius * .45, asteroid.radius * .42); context.stroke(); } context.restore(); });
 	bullets.forEach(bullet => { context.fillStyle = bullet.color; context.shadowColor = bullet.color; context.shadowBlur = bullet.weapon === "beam" ? 26 : bullet.weapon === "plasma" || bullet.weapon === "fusion" ? 22 : bullet.weapon === "rocket" || bullet.weapon === "grenade" ? 16 : 12; if (bullet.weapon === "beam") { context.fillRect(bullet.x - 5, bullet.y - 18, 10, 25); } else if (bullet.weapon === "plasma" || bullet.weapon === "fusion") { context.beginPath(); context.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2); context.fill(); if (bullet.secondary) { context.fillStyle = bullet.secondary; context.beginPath(); context.arc(bullet.x, bullet.y, bullet.radius * .45, 0, Math.PI * 2); context.fill(); } } else if (bullet.weapon === "rocket" || bullet.weapon === "grenade") { context.beginPath(); context.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2); context.fill(); context.fillStyle = "#ff754f"; context.fillRect(bullet.x - 2, bullet.y + 5, 4, 7); } else { context.fillRect(bullet.x - 2, bullet.y - 8, 4, 12); } context.shadowBlur = 0; });
 	effects.forEach(effect => { context.globalAlpha = Math.max(0, effect.life / effect.maxLife); context.fillStyle = effect.color; if (effect.type === "smoke") { context.beginPath(); context.arc(effect.x, effect.y, effect.size, 0, Math.PI * 2); context.fill(); } else { context.fillRect(effect.x, effect.y, effect.size, effect.size); } }); context.globalAlpha = 1;
 	if (player.invulnerable <= 0 || Math.floor(player.invulnerable * 10) % 2 === 0) { const ship = ships[selectedShip]; context.save(); context.translate(player.x, player.y); context.fillStyle = ship.color; context.shadowColor = ship.color; context.shadowBlur = 18; context.beginPath(); if (ship.shape === "special") { context.moveTo(0, -24); context.lineTo(12, -9); context.lineTo(24, 5); context.lineTo(9, 9); context.lineTo(0, 20); context.lineTo(-9, 9); context.lineTo(-24, 5); context.lineTo(-12, -9); } else if (ship.shape === "hunter") { context.moveTo(0, -20); context.lineTo(16, 6); context.lineTo(8, 15); context.lineTo(0, 8); context.lineTo(-8, 15); context.lineTo(-16, 6); } else if (ship.shape === "titan") { context.moveTo(-18, -12); context.lineTo(18, -12); context.lineTo(21, 12); context.lineTo(-21, 12); } else { context.moveTo(0, -20); context.lineTo(14, 14); context.lineTo(0, 9); context.lineTo(-14, 14); } context.closePath(); context.fill(); context.fillStyle = "#10181e"; context.beginPath(); context.arc(0, -5, 4, 0, Math.PI * 2); context.fill(); context.restore(); }
+	const healthRatio = Math.max(0, state.lives / ships[selectedShip].lives);
+	const barWidth = Math.max(44, player.radius * 2.8);
+	const barX = player.x - barWidth / 2;
+	const barY = player.y - player.radius - 14;
+	context.fillStyle = "rgba(5, 12, 16, .9)";
+	context.fillRect(barX, barY, barWidth, 5);
+	context.fillStyle = healthRatio <= .3 ? "#e34b5b" : healthRatio <= .6 ? "#ff754f" : "#d7f36b";
+	context.fillRect(barX, barY, barWidth * healthRatio, 5);
+	context.strokeStyle = "#9aa9a9";
+	context.lineWidth = 1;
+	context.strokeRect(barX, barY, barWidth, 5);
 	context.restore();
 }
 
@@ -257,5 +307,11 @@ pilotOptions.forEach(button => button.addEventListener("click", () => { selected
 mapOptions.forEach(button => button.addEventListener("click", () => { selectedMap = button.dataset.map; mapOptions.forEach(option => { const selected = option === button; option.classList.toggle("is-selected", selected); option.setAttribute("aria-pressed", selected); }); mapDescription.textContent = maps[selectedMap].description; resetGame(); }));
 weaponOptions.forEach(button => button.addEventListener("click", () => { const weapon = button.dataset.weapon; if (fusionMode) { if (fusionParts.includes(weapon)) fusionParts = fusionParts.filter(part => part !== weapon); else if (fusionParts.length < 2) fusionParts.push(weapon); weaponOptions.forEach(option => { const selected = fusionParts.includes(option.dataset.weapon); option.classList.toggle("is-selected", selected); option.setAttribute("aria-pressed", selected); }); fusionStatus.textContent = fusionParts.length === 2 ? `${weapons[fusionParts[0]].name} + ${weapons[fusionParts[1]].name} prontos` : `escolha ${2 - fusionParts.length} arma(s)`; weaponDescription.textContent = "modo fusão"; return; } selectedWeapon = weapon; weaponOptions.forEach(option => { const selected = option === button; option.classList.toggle("is-selected", selected); option.setAttribute("aria-pressed", selected); }); weaponDescription.textContent = weapons[selectedWeapon].description; }));
 fusionButton.addEventListener("click", () => { fusionMode = !fusionMode; fusionParts = []; fusionButton.setAttribute("aria-pressed", fusionMode); weaponOptions.forEach(option => { option.classList.toggle("is-selected", !fusionMode && option.dataset.weapon === selectedWeapon); option.setAttribute("aria-pressed", !fusionMode && option.dataset.weapon === selectedWeapon); }); fusionStatus.textContent = fusionMode ? "escolha duas armas no arsenal" : "selecione duas armas para criar uma híbrida"; weaponDescription.textContent = fusionMode ? "modo fusão" : weapons[selectedWeapon].description; });
+
+resumeButton.addEventListener("click", togglePause);
+specialButton.addEventListener("pointerdown", event => { event.preventDefault(); if (state.special < 100) return; state.special = 0; state.specialTime = 30; if (selectedShip === "scout") { player.invulnerable = 2; player.y = Math.max(25, player.y - 90); } else if (selectedShip === "titan") state.lives = Math.min(ships[selectedShip].lives, state.lives + 2); else { for (let index = 0; index < 7; index += 1) bullets.push({ x: player.x + (index - 3) * 12, y: player.y - player.radius, radius: 7, speed: 300, damage: 3, color: ships[selectedShip].color, weapon: "grenade", splash: 70 }); } repairStatus.textContent = `${specials[selectedShip][0]}: ${specials[selectedShip][1]}`; });
+window.addEventListener("keydown", event => { if (event.key.toLowerCase() === "e" && state.special >= 100) specialButton.dispatchEvent(new PointerEvent("pointerdown")); });
+shipOptions.forEach(button => button.addEventListener("click", () => { if (button.dataset.ship === "special" && state.level < 20) { repairStatus.textContent = "AURORA BLOQUEADA: alcance o nível 20"; return; } }));
+mapOptions.forEach(button => button.addEventListener("click", () => { if (state.level < maps[button.dataset.map].unlock) { repairStatus.textContent = `MAPA BLOQUEADO: alcance o nível ${maps[button.dataset.map].unlock}`; } }));
 
 resizeCanvas(); createStars(); resetGame();
