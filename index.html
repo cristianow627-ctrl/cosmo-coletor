@@ -21,9 +21,13 @@
 
 		<section class="hud" aria-label="Status da missão">
 			<div class="stat"><span>PONTOS</span><strong id="score">0000</strong></div>
+			<div class="stat level-stat"><span>NÍVEL <b id="levelValue">1</b></span><div class="level-bar"><i id="xpFill"></i></div><small id="xpStatus">0 / 100 XP</small></div>
 			<div class="stat"><span>ENERGIA</span><strong id="energy">∞</strong></div>
-			<div class="stat"><span>TEMPO</span><strong id="timer">60</strong></div>
-			<div class="stat lives-stat"><span>BLINDAGEM</span><strong id="lives">● ● ●</strong></div>
+			<div class="stat"><span>TEMPO</span><strong id="timer">∞</strong></div>
+			<div class="stat lives-stat"><span>SAÚDE DA NAVE</span><div class="health-bar"><i id="healthFill"></i></div><strong id="lives">● ● ●</strong><small id="armorLevel">3 / 3</small></div>
+			<div class="stat damage-stat"><span>DANO RECEBIDO</span><strong id="damageReceived">0</strong><small>impactos</small></div>
+			<div class="stat special-stat"><span>ESPECIAL <b id="specialName">DASH</b></span><div class="special-bar"><i id="specialFill"></i></div><small id="specialStatus">carregando</small></div>
+			<div class="stat support-stat"><span>APOIO</span><strong id="supportStatus">MECÂNICO</strong><small id="supportDetail">reparo em 8s</small></div>
 		</section>
 
 		<section class="hangar" aria-label="Seleção de nave e piloto">
@@ -31,8 +35,8 @@
 			<div class="ship-options">
 				<button class="ship-option is-selected" data-ship="scout" type="button" aria-pressed="true"><img class="pilot-portrait" src="luna.svg" alt="Retrato de Luna"><i class="ship-mark scout-mark"></i><span><strong>LUNA / CORREDORA</strong><small>rápida · tiro simples</small></span></button>
 				<button class="ship-option" data-ship="hunter" type="button" aria-pressed="false"><img class="pilot-portrait" src="kaio.svg" alt="Retrato de Kaio"><i class="ship-mark hunter-mark"></i><span><strong>KAIO / CAÇADORA</strong><small>equilibrada · tiro duplo</small></span></button>
-				<button class="ship-option" data-ship="titan" type="button" aria-pressed="false"><img class="pilot-portrait" src="iris.svg" alt="Retrato de Íris"><i class="ship-mark titan-mark"></i><span><strong>ÍRIS / TANQUE</strong><small>lenta · canhão pesado</small></span></button>
-				<button class="ship-option special-ship" data-ship="special" type="button" aria-pressed="false"><i class="ship-mark special-mark"></i><span><strong>AURORA / ESPECIAL</strong><small>metralhadora · granadas · raio</small></span></button>
+				<button class="ship-option" data-ship="titan" type="button" aria-pressed="false"><img class="pilot-portrait" src="iris.svg" alt="Retrato de Íris"><i class="ship-mark titan-mark"></i><span><strong>ÍRIS / TANQUE</strong><small>lenta · canhão pesado</small><small>dano: 2</small></span></button>
+				<button class="ship-option special-ship locked-ship" data-ship="special" type="button" aria-pressed="false"><i class="ship-mark special-mark"></i><span><strong>AURORA / ESPECIAL</strong><small>desbloqueia no nível 20</small><small>dano: 1</small></span></button>
 			</div>
 			<div class="pilot-select" id="pilotSelect" hidden><span>ESCOLHA O PILOTO DA AURORA</span><button data-pilot="scout" type="button">LUNA</button><button data-pilot="hunter" type="button">KAIO</button><button data-pilot="titan" type="button">ÍRIS</button></div>
 		</section>
@@ -58,6 +62,7 @@
 				<button class="weapon-option" data-weapon="beam" type="button" aria-pressed="false"><i class="weapon-icon beam-icon"></i><span>RAIO PLASMA<small>feixe contínuo</small></span></button>
 			</div>
 			<div class="fusion-row"><button class="fusion-button" id="fusionButton" type="button" aria-pressed="false">+ FUNDIR ARMAS</button><small id="fusionStatus">selecione duas armas para criar uma híbrida</small></div>
+			<div class="repair-status" id="repairStatus"></div>
 		</section>
 
 		<section class="game-frame">
@@ -69,18 +74,18 @@
 				<button class="primary-button" id="restartButton" type="button">Jogar novamente</button>
 			</div>
 			<div class="pause-message" id="pauseMessage" hidden>
-				<p>JOGO PAUSADO</p>
-				<small>Pressione P ou toque no botão para voltar</small>
+				<p>JOGO PAUSADO</p><button class="primary-button" id="resumeButton" type="button">Continuar</button>
 			</div>
 		</section>
 
 		<footer class="controls">
-			<div class="instructions"><span class="key-hint">WASD</span><span>mover</span><span class="key-hint">ESPAÇO</span><span>atirar</span><span class="dot"></span><span>cole cristais, desvie dos asteroides</span></div>
+			<div class="instructions"><span class="key-hint">WASD</span><span>mover</span><span class="key-hint">ESPAÇO</span><span>atirar</span><span class="key-hint">E</span><span>especial</span><span class="dot"></span><span>cole cristais, desvie dos asteroides</span></div>
 			<div class="touch-controls" aria-label="Controles de toque">
 				<button data-key="ArrowLeft" type="button" aria-label="Mover para esquerda">←</button>
 				<div><button data-key="ArrowUp" type="button" aria-label="Mover para cima">↑</button><button data-key="ArrowDown" type="button" aria-label="Mover para baixo">↓</button></div>
 				<button data-key="ArrowRight" type="button" aria-label="Mover para direita">→</button>
 				<button class="fire-button" id="fireButton" type="button" aria-label="Atirar">✦</button>
+				<button class="special-button" id="specialButton" type="button" aria-label="Usar especial">★</button>
 			</div>
 		</footer>
 	</main>
